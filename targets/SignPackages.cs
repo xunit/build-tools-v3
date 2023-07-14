@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Threading.Tasks;
 using Xunit.BuildTools.Models;
 
@@ -17,17 +16,19 @@ public static partial class SignPackages
 
 		var tenantId = Environment.GetEnvironmentVariable("SIGN_TENANT");
 		var vaultUri = Environment.GetEnvironmentVariable("SIGN_VAULT_URI");
+		var signTimestampUri = Environment.GetEnvironmentVariable("SIGN_TIMESTAMP_URI");
 		var applicationId = Environment.GetEnvironmentVariable("SIGN_APP_ID");
 		var applicationSecret = Environment.GetEnvironmentVariable("SIGN_APP_SECRET");
 		var certificateName = Environment.GetEnvironmentVariable("SIGN_CERT_NAME");
 
 		if (string.IsNullOrWhiteSpace(tenantId) ||
 			string.IsNullOrWhiteSpace(vaultUri) ||
+			string.IsNullOrWhiteSpace(signTimestampUri) ||
 			string.IsNullOrWhiteSpace(applicationId) ||
 			string.IsNullOrWhiteSpace(applicationSecret) ||
 			string.IsNullOrWhiteSpace(certificateName))
 		{
-			context.WriteLineColor(ConsoleColor.Yellow, $"Skipping packing signing because one or more environment variables are missing: SIGN_TENANT, SIGN_VAULT_URI, SIGN_APP_ID, SIGN_APP_SECRET, SIGN_CERT_NAME{Environment.NewLine}");
+			context.WriteLineColor(ConsoleColor.Yellow, $"Skipping packing signing because one or more environment variables are missing: SIGN_TENANT, SIGN_VAULT_URI, SIGN_TIMESTAMP_URI, SIGN_APP_ID, SIGN_APP_SECRET, SIGN_CERT_NAME{Environment.NewLine}");
 			return;
 		}
 
@@ -36,6 +37,7 @@ public static partial class SignPackages
 			$" --base-directory \"{context.PackageOutputFolder}\"" +
 			$" --description \"xUnit.net\"" +
 			$" --description-url https://github.com/xunit" +
+			$" --timestamp-url {signTimestampUri}" +
 			$" --azure-key-vault-url {vaultUri}" +
 			$" --azure-key-vault-client-id {applicationId}" +
 			$" --azure-key-vault-client-secret \"{applicationSecret}\"" +
