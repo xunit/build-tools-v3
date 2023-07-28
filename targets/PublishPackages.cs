@@ -16,10 +16,12 @@ public static partial class PublishPackages
 	{
 		context.BuildStep("Publishing NuGet packages");
 
-		var publishToken = Environment.GetEnvironmentVariable("PublishToken");
-		if (string.IsNullOrWhiteSpace(publishToken))
+		var pushApiKey = Environment.GetEnvironmentVariable("PUSH_APIKEY");
+		var pushUri = Environment.GetEnvironmentVariable("PUSH_URI");
+
+		if (string.IsNullOrWhiteSpace(pushApiKey) || string.IsNullOrWhiteSpace(pushUri))
 		{
-			context.WriteLineColor(ConsoleColor.Yellow, $"Skipping package publishing because environment variable 'PublishToken' is not set.{Environment.NewLine}");
+			context.WriteLineColor(ConsoleColor.Yellow, $"Skipping package publishing because environment variable 'PUSH_APIKEY' or 'PUSH_URI' is not set.{Environment.NewLine}");
 			return;
 		}
 
@@ -30,8 +32,8 @@ public static partial class PublishPackages
 
 		foreach (var packageFile in packageFiles.OrderBy(x => x))
 		{
-			var args = $"nuget push --source https://www.myget.org/F/xunit/api/v2/package --api-key {publishToken} {packageFile}";
-			var redactedArgs = args.Replace(publishToken, "[redacted]");
+			var args = $"nuget push --source {pushUri} --api-key {pushApiKey} {packageFile}";
+			var redactedArgs = args.Replace(pushApiKey, "[redacted]");
 			await context.Exec("dotnet", args, redactedArgs);
 		}
 	}
