@@ -21,6 +21,7 @@ public partial class BuildContext
 	string? artifactsFolder;
 	string? baseFolder;
 	string? packageOutputFolder;
+	string? nuGetPackageCachePath;
 	List<string>? skippedAnalysisFolders;
 	List<string>? skippedAnalysisFoldersFull;
 	List<Regex> skippedBomFilePatterns = new()
@@ -55,6 +56,12 @@ public partial class BuildContext
 	public string ConfigurationText => Configuration.ToString();
 
 	public bool NeedMono { get; private set; }
+
+	public string NuGetPackageCachePath
+	{
+		get => nuGetPackageCachePath ?? throw new InvalidOperationException($"Tried to retrieve unset {nameof(BuildContext)}.{nameof(NuGetPackageCachePath)}");
+		private set => nuGetPackageCachePath = value ?? throw new ArgumentNullException(nameof(NuGetPackageCachePath));
+	}
 
 	public string PackageOutputFolder
 	{
@@ -184,6 +191,28 @@ public partial class BuildContext
 		try
 		{
 			NeedMono = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+			// Find the NuGet package cache
+			nuGetPackageCachePath = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+			if (nuGetPackageCachePath is null)
+			{
+				var homeFolder = NeedMono ? Environment.GetEnvironmentVariable("HOME") : Environment.GetEnvironmentVariable("USERPROFILE");
+				if (homeFolder != null)
+					nuGetPackageCachePath = Path.Combine(homeFolder, ".nuget", "packages");
+			}
+
+			if (nuGetPackageCachePath is null)
+			{
+				WriteLineColor(ConsoleColor.Red, $"error: Could not find NuGet package cache (environment variable {(NeedMono ? "HOME" : "USERPROFILE")} is missing)");
+				return -1;
+			}
+
+			nuGetPackageCachePath = Path.GetFullPath(nuGetPackageCachePath);
+			if (!Directory.Exists(nuGetPackageCachePath))
+			{
+				WriteLineColor(ConsoleColor.Red, $"error: Expected to find NuGet package cache at {nuGetPackageCachePath} but it does not exist");
+				return -1;
+			}
 
 			// Find the folder with the solution file
 			var baseFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
