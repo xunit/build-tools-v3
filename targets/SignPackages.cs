@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Xunit.BuildTools.Models;
 
@@ -32,25 +34,39 @@ public static partial class SignPackages
 			return;
 		}
 
-		var args =
-			$"sign code azure-key-vault **/*.nupkg" +
-			$" --base-directory \"{context.PackageOutputFolder}\"" +
-			$" --description \"xUnit.net\"" +
-			$" --description-url https://github.com/xunit" +
-			$" --timestamp-url {signTimestampUri}" +
-			$" --azure-key-vault-url {vaultUri}" +
-			$" --azure-key-vault-client-id {applicationId}" +
-			$" --azure-key-vault-client-secret \"{applicationSecret}\"" +
-			$" --azure-key-vault-tenant-id {tenantId}" +
-			$" --azure-key-vault-certificate {certificateName}";
+		foreach (var nupkgFile in Directory.GetFiles(context.PackageOutputFolder, "*.nupkg"))
+		{
+			var args =
+				$"sign code azure-key-vault \"{nupkgFile}\"" +
+				$" --description \"xUnit.net\"" +
+				$" --description-url https://github.com/xunit" +
+				$" --timestamp-url {signTimestampUri}" +
+				$" --azure-key-vault-url {vaultUri}" +
+				$" --azure-key-vault-client-id {applicationId}" +
+				$" --azure-key-vault-client-secret \"{applicationSecret}\"" +
+				$" --azure-key-vault-tenant-id {tenantId}" +
+				$" --azure-key-vault-certificate {certificateName}";
 
-		var redactedArgs =
-			args.Replace(tenantId, "[redacted]")
-				.Replace(vaultUri, "[redacted]")
-				.Replace(applicationId, "[redacted]")
-				.Replace(applicationSecret, "[redacted]")
-				.Replace(certificateName, "[redacted]");
+			// Append the file list, if it's present. We need to remove both the extension and the last part of the filename
+			// because NuGet packages are formatted as (name).(version).nupkg. SemVer regular expression adapted from
+			// https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+			var semVerRegex = new Regex("^(.*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$");
+			var match = semVerRegex.Match(Path.GetFileNameWithoutExtension(nupkgFile));
+			if (match.Success)
+			{
+				var fileList = Path.Combine(context.PackageOutputFolder, match.Groups[1].Value + ".sign-file-list");
+				if (File.Exists(fileList))
+					args += $" --file-list \"{fileList}\"";
+			}
 
-		await context.Exec("dotnet", args, redactedArgs);
+			var redactedArgs =
+				args.Replace(tenantId, "[redacted]")
+					.Replace(vaultUri, "[redacted]")
+					.Replace(applicationId, "[redacted]")
+					.Replace(applicationSecret, "[redacted]")
+					.Replace(certificateName, "[redacted]");
+
+			await context.Exec("dotnet", args, redactedArgs);
+		}
 	}
 }
