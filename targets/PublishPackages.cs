@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using SimpleExec;
 using Xunit.BuildTools.Models;
 
 namespace Xunit.BuildTools.Targets;
@@ -21,8 +22,8 @@ public static partial class PublishPackages
 
 		if (string.IsNullOrWhiteSpace(pushApiKey) || string.IsNullOrWhiteSpace(pushUri))
 		{
-			context.WriteLineColor(ConsoleColor.Yellow, $"Skipping package publishing because environment variable 'PUSH_APIKEY' or 'PUSH_URI' is not set.{Environment.NewLine}");
-			return;
+			context.WriteLineColor(ConsoleColor.Red, "One or more package publishing environment variables are missing: PUSH_APIKEY, PUSH_URI");
+			throw new ExitCodeException(-1);
 		}
 
 		var packageFiles =

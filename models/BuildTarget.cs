@@ -11,6 +11,7 @@ public partial class BuildTarget
 	public const string PublishPackages = nameof(PublishPackages);
 	public const string Restore = nameof(Restore);
 	public const string RestoreTools = nameof(RestoreTools);
+	public const string SignAssemblies = nameof(SignAssemblies);
 	public const string SignPackages = nameof(SignPackages);
 	public const string Test = nameof(Test);
 }

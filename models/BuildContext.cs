@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -20,8 +21,14 @@ public partial class BuildContext
 {
 	string? artifactsFolder;
 	string? baseFolder;
-	string? packageOutputFolder;
 	string? nuGetPackageCachePath;
+	string? packageOutputFolder;
+	string signApplicationId = Environment.GetEnvironmentVariable("SIGN_APP_ID") ?? string.Empty;
+	string signApplicationSecret = Environment.GetEnvironmentVariable("SIGN_APP_SECRET") ?? string.Empty;
+	string signCertificateName = Environment.GetEnvironmentVariable("SIGN_CERT_NAME") ?? string.Empty;
+	string signTenantId = Environment.GetEnvironmentVariable("SIGN_TENANT") ?? string.Empty;
+	string signTimestampUri = Environment.GetEnvironmentVariable("SIGN_TIMESTAMP_URI") ?? string.Empty;
+	string signVaultUri = Environment.GetEnvironmentVariable("SIGN_VAULT_URI") ?? string.Empty;
 	List<string>? skippedAnalysisFolders;
 	List<string>? skippedAnalysisFoldersFull;
 	List<Regex> skippedBomFilePatterns = new()
@@ -52,6 +59,8 @@ public partial class BuildContext
 		get => baseFolder ?? throw new InvalidOperationException($"Tried to retrieve unset {nameof(BuildContext)}.{nameof(BaseFolder)}");
 		private set => baseFolder = value ?? throw new ArgumentNullException(nameof(BaseFolder));
 	}
+
+	public bool CanSign { get; private set; }
 
 	public string ConfigurationText => Configuration.ToString();
 
@@ -190,6 +199,14 @@ public partial class BuildContext
 
 		try
 		{
+			CanSign =
+				!string.IsNullOrWhiteSpace(signApplicationId) &&
+				!string.IsNullOrWhiteSpace(signApplicationSecret) &&
+				!string.IsNullOrWhiteSpace(signCertificateName) &&
+				!string.IsNullOrWhiteSpace(signTenantId) &&
+				!string.IsNullOrWhiteSpace(signTimestampUri) &&
+				!string.IsNullOrWhiteSpace(signVaultUri);
+
 			NeedMono = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
 			// Find the NuGet package cache
@@ -309,6 +326,58 @@ public partial class BuildContext
 		{
 			if (Timing)
 				WriteLineColor(ConsoleColor.Cyan, $"TIMING: Build took {swTotal.Elapsed}{Environment.NewLine}");
+		}
+	}
+
+	public async Task SignFiles(
+		string baseFolder,
+		params string[] files)
+	{
+		if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+		{
+			WriteLineColor(ConsoleColor.Red, "Code signing requires Microsoft Windows");
+			throw new ExitCodeException(-1);
+		}
+
+		if (!CanSign)
+		{
+			WriteLineColor(ConsoleColor.Red, "One or more code signing environment variables are missing: SIGN_TENANT, SIGN_VAULT_URI, SIGN_TIMESTAMP_URI, SIGN_APP_ID, SIGN_APP_SECRET, SIGN_CERT_NAME");
+			throw new ExitCodeException(-1);
+		}
+
+		// Pass an empty file list, because NuGet packages will contain already-signed binaries
+		var fileList = Path.GetTempFileName();
+
+		try
+		{
+			foreach (var file in files)
+			{
+				var args =
+					$"sign code azure-key-vault \"{file}\"" +
+					$" --base-directory \"{baseFolder}\"" +
+					$" --description \"xUnit.net\"" +
+					$" --description-url https://github.com/xunit" +
+					$" --timestamp-url {signTimestampUri}" +
+					$" --azure-key-vault-url {signVaultUri}" +
+					$" --azure-key-vault-client-id {signApplicationId}" +
+					$" --azure-key-vault-client-secret \"{signApplicationSecret}\"" +
+					$" --azure-key-vault-tenant-id {signTenantId}" +
+					$" --azure-key-vault-certificate {signCertificateName}" +
+					$" --file-list \"{fileList}\"";
+
+				var redactedArgs =
+					args.Replace(signTenantId, "[redacted]")
+						.Replace(signVaultUri, "[redacted]")
+						.Replace(signApplicationId, "[redacted]")
+						.Replace(signApplicationSecret, "[redacted]")
+						.Replace(signCertificateName, "[redacted]");
+
+				await Exec("dotnet", args, redactedArgs);
+			}
+		}
+		finally
+		{
+			File.Delete(fileList);
 		}
 	}
 
