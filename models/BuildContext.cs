@@ -149,7 +149,12 @@ public partial class BuildContext
 			name = "mono";
 		}
 
-		WriteLineColor(ConsoleColor.DarkGray, $"EXEC: {name} {redactedArgs}{Environment.NewLine}");
+		var displayName =
+			name.Contains(" ") || name.Contains("'")
+				? "'" + name.Replace("'", "''") + "'"
+				: name;
+
+		WriteLineColor(ConsoleColor.DarkGray, $"EXEC: & {displayName} {redactedArgs}{Environment.NewLine}");
 
 		await Command.RunAsync(name, args, workingDirectory ?? BaseFolder, /*noEcho*/ true);
 
