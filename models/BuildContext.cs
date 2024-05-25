@@ -34,6 +34,7 @@ public partial class BuildContext
 	List<Regex> skippedBomFilePatterns = new()
 	{
 		new Regex(@"\.user$"),
+		new Regex(@"\.ncrunchsolution"),
 	};
 	HashSet<string> skippedBomFolderNames = new(StringComparer.OrdinalIgnoreCase)
 	{
