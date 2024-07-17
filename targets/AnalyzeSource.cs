@@ -32,6 +32,6 @@ public static partial class AnalyzeSource
 		if (foundBOM)
 			throw new ExitCodeException(-1);
 
-		await context.Exec("dotnet", $"format whitespace --verify-no-changes --folder --verbosity {context.Verbosity} {string.Join(" ", context.GetSkippedAnalysisFolders().Select(f => $"--exclude {f}"))}");
+		await context.Exec("dotnet", $"format whitespace --verify-no-changes --folder {string.Join(" ", context.GetSkippedAnalysisFolders().Select(f => $"--exclude {f}"))}");
 	}
 }

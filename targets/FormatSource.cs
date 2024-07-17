@@ -33,6 +33,6 @@ public static partial class FormatSource
 		if (foundBOM)
 			Console.WriteLine();
 
-		await context.Exec("dotnet", $"format whitespace --folder {string.Join(" ", context.GetSkippedAnalysisFolders().Select(f => $"--exclude {f}"))}");
+		await context.Exec("dotnet", $"format whitespace --folder --verbosity normal {string.Join(" ", context.GetSkippedAnalysisFolders().Select(f => $"--exclude {f}"))}");
 	}
 }
