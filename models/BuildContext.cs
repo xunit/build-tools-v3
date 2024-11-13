@@ -21,6 +21,7 @@ public partial class BuildContext
 {
 	string? artifactsFolder;
 	string? baseFolder;
+	Version? dotNetSdkVersion;
 	string? nuGetPackageCachePath;
 	string? packageOutputFolder;
 	string signApplicationId = Environment.GetEnvironmentVariable("SIGN_APP_ID") ?? string.Empty;
@@ -65,6 +66,12 @@ public partial class BuildContext
 	public bool CanSign { get; private set; }
 
 	public string ConfigurationText => Configuration.ToString();
+
+	public Version DotNetSdkVersion
+	{
+		get => dotNetSdkVersion ?? throw new InvalidOperationException($"Tried to retrieve unset {nameof(BuildContext)}.{nameof(DotNetSdkVersion)}");
+		private set => dotNetSdkVersion = value ?? throw new ArgumentNullException(nameof(DotNetSdkVersion));
+	}
 
 	public bool NeedMono { get; private set; }
 
@@ -262,6 +269,20 @@ public partial class BuildContext
 
 			TestOutputFolder = Path.Combine(ArtifactsFolder, "test");
 			Directory.CreateDirectory(TestOutputFolder);
+
+			// Get the version of the .NET SDK
+			var dotnetProcessInfo = new ProcessStartInfo("dotnet", "--version") { RedirectStandardOutput = true, RedirectStandardError = true };
+			var dotnetProcess = Process.Start(dotnetProcessInfo);
+			if (dotnetProcess is not null)
+			{
+				dotnetProcess.WaitForExit();
+
+				if (dotnetProcess.ExitCode != 0)
+					throw new InvalidOperationException("Could not execute 'dotnet --version'");
+
+				var stdOutText = dotnetProcess.StandardOutput.ReadToEnd().Trim();
+				DotNetSdkVersion = Version.Parse(stdOutText);
+			}
 
 			// Call dependent initialization, if there is one
 			Initialize();
