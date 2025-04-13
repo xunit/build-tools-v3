@@ -214,10 +214,7 @@ public partial class BuildContext
 		try
 		{
 			CanSign =
-				!string.IsNullOrWhiteSpace(signApplicationId) &&
-				!string.IsNullOrWhiteSpace(signApplicationSecret) &&
 				!string.IsNullOrWhiteSpace(signCertificateName) &&
-				!string.IsNullOrWhiteSpace(signTenantId) &&
 				!string.IsNullOrWhiteSpace(signTimestampUri) &&
 				!string.IsNullOrWhiteSpace(signVaultUri);
 
@@ -369,7 +366,7 @@ public partial class BuildContext
 
 		if (!CanSign)
 		{
-			WriteLineColor(ConsoleColor.Red, "One or more code signing environment variables are missing: SIGN_TENANT, SIGN_VAULT_URI, SIGN_TIMESTAMP_URI, SIGN_APP_ID, SIGN_APP_SECRET, SIGN_CERT_NAME");
+			WriteLineColor(ConsoleColor.Red, "One or more code signing environment variables are missing: SIGN_VAULT_URI, SIGN_TIMESTAMP_URI, SIGN_CERT_NAME");
 			throw new ExitCodeException(-1);
 		}
 
@@ -385,20 +382,25 @@ public partial class BuildContext
 					$" --base-directory \"{baseFolder}\"" +
 					$" --description \"xUnit.net\"" +
 					$" --description-url https://github.com/xunit" +
+					$" --file-list \"{fileList}\"" +
 					$" --timestamp-url {signTimestampUri}" +
 					$" --azure-key-vault-url {signVaultUri}" +
-					$" --azure-key-vault-client-id {signApplicationId}" +
-					$" --azure-key-vault-client-secret \"{signApplicationSecret}\"" +
-					$" --azure-key-vault-tenant-id {signTenantId}" +
-					$" --azure-key-vault-certificate {signCertificateName}" +
-					$" --file-list \"{fileList}\"";
+					$" --azure-key-vault-certificate {signCertificateName}";
+
+				if (signApplicationId is not null && signApplicationSecret is not null && signTenantId is not null)
+					args +=
+						$" --azure-key-vault-client-id {signApplicationId}" +
+						$" --azure-key-vault-client-secret \"{signApplicationSecret}\"" +
+						$" --azure-key-vault-tenant-id {signTenantId}";
+				else
+					args += " --azure-key-vault-managed-identity true";
 
 				var redactedArgs =
-					args.Replace(signTenantId, "[redacted]")
-						.Replace(signVaultUri, "[redacted]")
-						.Replace(signApplicationId, "[redacted]")
-						.Replace(signApplicationSecret, "[redacted]")
-						.Replace(signCertificateName, "[redacted]");
+					args.SafeReplace(signTenantId, "[redacted]")
+						.SafeReplace(signVaultUri, "[redacted]")
+						.SafeReplace(signApplicationId, "[redacted]")
+						.SafeReplace(signApplicationSecret, "[redacted]")
+						.SafeReplace(signCertificateName, "[redacted]");
 
 				await Exec("dotnet", args, redactedArgs);
 			}
