@@ -24,12 +24,12 @@ public partial class BuildContext
 	Version? dotNetSdkVersion;
 	string? nuGetPackageCachePath;
 	string? packageOutputFolder;
-	string signApplicationId = Environment.GetEnvironmentVariable("SIGN_APP_ID") ?? string.Empty;
-	string signApplicationSecret = Environment.GetEnvironmentVariable("SIGN_APP_SECRET") ?? string.Empty;
-	string signCertificateName = Environment.GetEnvironmentVariable("SIGN_CERT_NAME") ?? string.Empty;
-	string signTenantId = Environment.GetEnvironmentVariable("SIGN_TENANT") ?? string.Empty;
-	string signTimestampUri = Environment.GetEnvironmentVariable("SIGN_TIMESTAMP_URI") ?? string.Empty;
-	string signVaultUri = Environment.GetEnvironmentVariable("SIGN_VAULT_URI") ?? string.Empty;
+	string? signApplicationId = Environment.GetEnvironmentVariable("SIGN_APP_ID");
+	string? signApplicationSecret = Environment.GetEnvironmentVariable("SIGN_APP_SECRET");
+	string? signCertificateName = Environment.GetEnvironmentVariable("SIGN_CERT_NAME");
+	string? signTenantId = Environment.GetEnvironmentVariable("SIGN_TENANT");
+	string? signTimestampUri = Environment.GetEnvironmentVariable("SIGN_TIMESTAMP_URI");
+	string? signVaultUri = Environment.GetEnvironmentVariable("SIGN_VAULT_URI");
 	List<string>? skippedAnalysisFolders;
 	List<string>? skippedAnalysisFoldersFull;
 	List<Regex> skippedBomFilePatterns = new()
@@ -387,20 +387,30 @@ public partial class BuildContext
 					$" --azure-key-vault-url {signVaultUri}" +
 					$" --azure-key-vault-certificate {signCertificateName}";
 
+				string redactedArgs;
+
 				if (signApplicationId is not null && signApplicationSecret is not null && signTenantId is not null)
+				{
 					args +=
 						$" --azure-key-vault-client-id {signApplicationId}" +
 						$" --azure-key-vault-client-secret \"{signApplicationSecret}\"" +
 						$" --azure-key-vault-tenant-id {signTenantId}";
+					redactedArgs =
+						args
+							.SafeReplace(signTenantId, "[redacted]")
+							.SafeReplace(signApplicationId, "[redacted]")
+							.SafeReplace(signApplicationSecret, "[redacted]")
+							.SafeReplace(signVaultUri, "[redacted]")
+							.SafeReplace(signCertificateName, "[redacted]");
+				}
 				else
+				{
 					args += " --azure-key-vault-managed-identity true";
-
-				var redactedArgs =
-					args.SafeReplace(signTenantId, "[redacted]")
-						.SafeReplace(signVaultUri, "[redacted]")
-						.SafeReplace(signApplicationId, "[redacted]")
-						.SafeReplace(signApplicationSecret, "[redacted]")
-						.SafeReplace(signCertificateName, "[redacted]");
+					redactedArgs =
+						args
+							.SafeReplace(signVaultUri, "[redacted]")
+							.SafeReplace(signCertificateName, "[redacted]");
+				}
 
 				await Exec("dotnet", args, redactedArgs);
 			}
