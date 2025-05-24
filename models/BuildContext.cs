@@ -117,7 +117,7 @@ public partial class BuildContext
 
 	// User-controllable command-line options
 
-	[Option("-c|--configuration", Description = "The target configuration (default: 'Release'; values: 'Debug', 'Release')")]
+	[Option("-c|--configuration", Description = "Target configuration")]
 	public Configuration Configuration { get; } = Configuration.Release;
 
 	[Option("-N|--no-color", Description = "Disable colored output")]
@@ -132,7 +132,7 @@ public partial class BuildContext
 	[Option("-t|--timing", Description = "Emit timing information for each target")]
 	public bool Timing { get; }
 
-	[Option("-v|--verbosity", Description = "Set verbosity level (default: 'minimal'; values: 'q[uiet]', 'm[inimal]', 'n[ormal]', 'd[etailed]', and 'diag[nostic]'")]
+	[Option("-v|--verbosity", Description = "Set verbosity level")]
 	public BuildVerbosity Verbosity { get; } = BuildVerbosity.minimal;
 
 	// Helper methods for build target consumption
