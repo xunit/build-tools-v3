@@ -4,7 +4,7 @@ namespace Xunit.BuildTools.Targets;
 
 [Target(
 	BuildTarget.SignAssemblies,
-	BuildTarget.Build
+	BuildTarget.RestoreTools, BuildTarget.Build
 )]
 public static partial class SignAssemblies
 { }

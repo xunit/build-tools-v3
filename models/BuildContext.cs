@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -11,6 +10,7 @@ using System.Threading.Tasks;
 using Bullseye;
 using Bullseye.Internal;
 using McMaster.Extensions.CommandLineUtils;
+using Microsoft.Security.Extensions;
 using SimpleExec;
 
 namespace Xunit.BuildTools.Models;
@@ -24,12 +24,12 @@ public partial class BuildContext
 	Version? dotNetSdkVersion;
 	string? nuGetPackageCachePath;
 	string? packageOutputFolder;
-	string signApplicationId = Environment.GetEnvironmentVariable("SIGN_APP_ID") ?? string.Empty;
-	string signApplicationSecret = Environment.GetEnvironmentVariable("SIGN_APP_SECRET") ?? string.Empty;
-	string signCertificateName = Environment.GetEnvironmentVariable("SIGN_CERT_NAME") ?? string.Empty;
-	string signTenantId = Environment.GetEnvironmentVariable("SIGN_TENANT") ?? string.Empty;
-	string signTimestampUri = Environment.GetEnvironmentVariable("SIGN_TIMESTAMP_URI") ?? string.Empty;
-	string signVaultUri = Environment.GetEnvironmentVariable("SIGN_VAULT_URI") ?? string.Empty;
+	string? signApplicationId = Environment.GetEnvironmentVariable("SIGN_APP_ID");
+	string? signApplicationSecret = Environment.GetEnvironmentVariable("SIGN_APP_SECRET");
+	string? signCertificateName = Environment.GetEnvironmentVariable("SIGN_CERT_NAME");
+	string? signTenantId = Environment.GetEnvironmentVariable("SIGN_TENANT");
+	string? signTimestampUri = Environment.GetEnvironmentVariable("SIGN_TIMESTAMP_URI");
+	string? signVaultUri = Environment.GetEnvironmentVariable("SIGN_VAULT_URI");
 	List<string>? skippedAnalysisFolders;
 	List<string>? skippedAnalysisFoldersFull;
 	List<Regex> skippedBomFilePatterns = new()
@@ -215,9 +215,7 @@ public partial class BuildContext
 		{
 			CanSign =
 				!string.IsNullOrWhiteSpace(signApplicationId) &&
-				!string.IsNullOrWhiteSpace(signApplicationSecret) &&
 				!string.IsNullOrWhiteSpace(signCertificateName) &&
-				!string.IsNullOrWhiteSpace(signTenantId) &&
 				!string.IsNullOrWhiteSpace(signTimestampUri) &&
 				!string.IsNullOrWhiteSpace(signVaultUri);
 
@@ -369,7 +367,7 @@ public partial class BuildContext
 
 		if (!CanSign)
 		{
-			WriteLineColor(ConsoleColor.Red, "One or more code signing environment variables are missing: SIGN_TENANT, SIGN_VAULT_URI, SIGN_TIMESTAMP_URI, SIGN_APP_ID, SIGN_APP_SECRET, SIGN_CERT_NAME");
+			WriteLineColor(ConsoleColor.Red, "One or more code signing environment variables are missing: SIGN_VAULT_URI, SIGN_TIMESTAMP_URI, SIGN_APP_ID, SIGN_CERT_NAME");
 			throw new ExitCodeException(-1);
 		}
 
@@ -382,25 +380,52 @@ public partial class BuildContext
 			{
 				var args =
 					$"sign code azure-key-vault \"{file}\"" +
+					$" --verbosity critical" +
 					$" --base-directory \"{baseFolder}\"" +
 					$" --description \"xUnit.net\"" +
 					$" --description-url https://github.com/xunit" +
 					$" --timestamp-url {signTimestampUri}" +
 					$" --azure-key-vault-url {signVaultUri}" +
-					$" --azure-key-vault-client-id {signApplicationId}" +
-					$" --azure-key-vault-client-secret \"{signApplicationSecret}\"" +
-					$" --azure-key-vault-tenant-id {signTenantId}" +
-					$" --azure-key-vault-certificate {signCertificateName}" +
-					$" --file-list \"{fileList}\"";
+					$" --azure-key-vault-certificate {signCertificateName}";
 
-				var redactedArgs =
-					args.Replace(signTenantId, "[redacted]")
-						.Replace(signVaultUri, "[redacted]")
-						.Replace(signApplicationId, "[redacted]")
-						.Replace(signApplicationSecret, "[redacted]")
-						.Replace(signCertificateName, "[redacted]");
+				if (Path.GetExtension(file).Equals(".nupkg", StringComparison.OrdinalIgnoreCase))
+					args += $" --file-list \"{fileList}\"";
+
+				string redactedArgs;
+
+				if (signApplicationSecret is not null && signTenantId is not null)
+				{
+					args +=
+						$" --azure-key-vault-client-id {signApplicationId}" +
+						$" --azure-key-vault-client-secret \"{signApplicationSecret}\"" +
+						$" --azure-key-vault-tenant-id {signTenantId}";
+					redactedArgs =
+						args
+							.SafeReplace(signTenantId, "[redacted]")
+							.SafeReplace(signVaultUri, "[redacted]")
+							.SafeReplace(signApplicationId, "[redacted]")
+							.SafeReplace(signApplicationSecret, "[redacted]")
+							.SafeReplace(signCertificateName, "[redacted]");
+				}
+				else
+				{
+					args += $" --managed-identity-client-id {signApplicationId}";
+					redactedArgs =
+						args
+							.SafeReplace(signVaultUri, "[redacted]")
+							.SafeReplace(signApplicationId, "[redacted]")
+							.SafeReplace(signCertificateName, "[redacted]");
+				}
 
 				await Exec("dotnet", args, redactedArgs);
+
+				if (File.Exists(file))
+				{
+					using FileStream fs = File.OpenRead(file);
+					var sigInfo = FileSignatureInfo.GetFromFileStream(fs);
+					if (sigInfo.State != SignatureState.SignedAndTrusted)
+						throw new InvalidOperationException($"Authenticode signature for {file} could not be verified");
+				}
 			}
 		}
 		finally
