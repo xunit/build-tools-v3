@@ -380,7 +380,6 @@ public partial class BuildContext
 			{
 				var args =
 					$"sign code azure-key-vault \"{file}\"" +
-					$" --verbosity critical" +
 					$" --base-directory \"{baseFolder}\"" +
 					$" --description \"xUnit.net\"" +
 					$" --description-url https://github.com/xunit" +
@@ -409,7 +408,7 @@ public partial class BuildContext
 				}
 				else
 				{
-					args += $" --managed-identity-client-id {signApplicationId}";
+					args += $" --managed-identity-client-id {signApplicationId} --azure-credential-type azure-cli";
 					redactedArgs =
 						args
 							.SafeReplace(signVaultUri, "[redacted]")
