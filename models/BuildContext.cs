@@ -278,8 +278,8 @@ public partial class BuildContext
 				if (dotnetProcess.ExitCode != 0)
 					throw new InvalidOperationException("Could not execute 'dotnet --version'");
 
-				var stdOutText = dotnetProcess.StandardOutput.ReadToEnd().Trim();
-				DotNetSdkVersion = Version.Parse(stdOutText);
+				var stdOutText = dotnetProcess.StandardOutput.ReadToEnd().Trim().Split('-');
+				DotNetSdkVersion = Version.Parse(stdOutText[0]);
 			}
 
 			// Call dependent initialization, if there is one
