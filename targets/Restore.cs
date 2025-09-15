@@ -1,3 +1,4 @@
+using System.IO;
 using System.Threading.Tasks;
 using Xunit.BuildTools.Models;
 
@@ -10,6 +11,8 @@ public static partial class Restore
 	{
 		context.BuildStep("Restoring NuGet packages");
 
-		return context.Exec("dotnet", $"restore --verbosity {context.Verbosity}");
+		var buildLog = Path.Combine(context.BuildArtifactsFolder, "restore.binlog");
+
+		return context.Exec("dotnet", $"msbuild -nologo -maxCpuCount -target:Restore -verbosity:{context.Verbosity} -binaryLogger:{buildLog}");
 	}
 }

@@ -21,6 +21,7 @@ public partial class BuildContext
 {
 	string? artifactsFolder;
 	string? baseFolder;
+	string? buildArtifactsFolder;
 	Version? dotNetSdkVersion;
 	string? nuGetPackageCachePath;
 	string? packageOutputFolder;
@@ -61,6 +62,12 @@ public partial class BuildContext
 	{
 		get => baseFolder ?? throw new InvalidOperationException($"Tried to retrieve unset {nameof(BuildContext)}.{nameof(BaseFolder)}");
 		private set => baseFolder = value ?? throw new ArgumentNullException(nameof(BaseFolder));
+	}
+
+	public string BuildArtifactsFolder
+	{
+		get => buildArtifactsFolder ?? throw new InvalidOperationException($"Tried to retrieve unset {nameof(BuildContext)}.{nameof(BuildArtifactsFolder)}");
+		private set => buildArtifactsFolder = value ?? throw new ArgumentNullException(nameof(BuildArtifactsFolder));
 	}
 
 	public bool CanSign { get; private set; }
@@ -261,6 +268,9 @@ public partial class BuildContext
 			// Dependent folders
 			ArtifactsFolder = Path.Combine(BaseFolder, "artifacts");
 			Directory.CreateDirectory(ArtifactsFolder);
+
+			BuildArtifactsFolder = Path.Combine(ArtifactsFolder, "build");
+			Directory.CreateDirectory(BuildArtifactsFolder);
 
 			PackageOutputFolder = Path.Combine(ArtifactsFolder, "packages");
 			Directory.CreateDirectory(PackageOutputFolder);
