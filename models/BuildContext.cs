@@ -259,6 +259,8 @@ public partial class BuildContext
 
 				if (Directory.GetFiles(baseFolder, "*.sln").Length != 0)
 					break;
+				if (Directory.GetFiles(baseFolder, "*.slnx").Length != 0)
+					break;
 
 				baseFolder = Path.GetDirectoryName(baseFolder);
 			}
