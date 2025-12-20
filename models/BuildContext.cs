@@ -33,12 +33,12 @@ public partial class BuildContext
 	string? signVaultUri = Environment.GetEnvironmentVariable("SIGN_VAULT_URI");
 	List<string>? skippedAnalysisFolders;
 	List<string>? skippedAnalysisFoldersFull;
-	List<Regex> skippedBomFilePatterns = new()
-	{
-		new Regex(@"\.user$"),
-		new Regex(@"\.ncrunchsolution"),
-		new Regex(@"\.ncrunchproject"),
-	};
+	List<Regex> skippedBomFilePatterns =
+	[
+		new(@"\.user$"),
+		new(@"\.ncrunchsolution"),
+		new(@"\.ncrunchproject"),
+	];
 	HashSet<string> skippedBomFolderNames = new(StringComparer.OrdinalIgnoreCase)
 	{
 		".git",
@@ -80,7 +80,7 @@ public partial class BuildContext
 		private set => dotNetSdkVersion = value ?? throw new ArgumentNullException(nameof(DotNetSdkVersion));
 	}
 
-	public bool NeedMono { get; private set; }
+	public bool IsWindows { get; } = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
 	public string NuGetPackageCachePath
 	{
@@ -158,15 +158,11 @@ public partial class BuildContext
 	{
 		redactedArgs ??= args;
 
-		if (NeedMono && name.EndsWith(".exe"))
-		{
-			args = $"{name} {args}";
-			redactedArgs = $"{name} {redactedArgs}";
-			name = "mono";
-		}
+		if (!IsWindows && name.EndsWith(".exe"))
+			throw new ArgumentException($"Cannot execute '{name}' on a non-Windows operating system");
 
 		var displayName =
-			name.Contains(" ") || name.Contains("'")
+			name.Contains(' ') || name.Contains('\'')
 				? "'" + name.Replace("'", "''") + "'"
 				: name;
 
@@ -226,20 +222,18 @@ public partial class BuildContext
 				!string.IsNullOrWhiteSpace(signTimestampUri) &&
 				!string.IsNullOrWhiteSpace(signVaultUri);
 
-			NeedMono = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-
 			// Find the NuGet package cache
 			nuGetPackageCachePath = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
 			if (nuGetPackageCachePath is null)
 			{
-				var homeFolder = NeedMono ? Environment.GetEnvironmentVariable("HOME") : Environment.GetEnvironmentVariable("USERPROFILE");
+				var homeFolder = !IsWindows ? Environment.GetEnvironmentVariable("HOME") : Environment.GetEnvironmentVariable("USERPROFILE");
 				if (homeFolder != null)
 					nuGetPackageCachePath = Path.Combine(homeFolder, ".nuget", "packages");
 			}
 
 			if (nuGetPackageCachePath is null)
 			{
-				WriteLineColor(ConsoleColor.Red, $"error: Could not find NuGet package cache (environment variable {(NeedMono ? "HOME" : "USERPROFILE")} is missing)");
+				WriteLineColor(ConsoleColor.Red, $"error: Could not find NuGet package cache (environment variable {(!IsWindows ? "HOME" : "USERPROFILE")} is missing)");
 				return -1;
 			}
 
