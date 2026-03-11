@@ -386,6 +386,7 @@ public partial class BuildContext
 			{
 				var args =
 					$"sign code azure-key-vault \"{file}\"" +
+					$" --verbosity Error" +
 					$" --base-directory \"{baseFolder}\"" +
 					$" --description \"xUnit.net\"" +
 					$" --description-url https://github.com/xunit" +
